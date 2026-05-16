@@ -131,7 +131,7 @@ async function fetchDashboard(userId: string): Promise<DashboardData> {
 
   const goals = profileRes.data;
   return {
-    userName:               goals?.full_name?.split(" ")[0] ?? "there",
+    userName:               goals?.full_name?.split(" ")[0] ?? "",
     streak,
     caloriesToday:          nutritionRes.data?.reduce((s,r) => s+(r.calories??0), 0) ?? 0,
     caloriesGoal:           goals?.calories_goal ?? 2400,
@@ -270,18 +270,21 @@ export default function Dashboard() {
   const [modal,    setModal]    = useState(false);
   const [userId,   setUserId]   = useState<string|null>(null);
 
-  async function load(uid: string) {
-    setLoading(true);
-    try { setData(await fetchDashboard(uid)); }
-    catch (e) { console.error("Dashboard fetch error:", e); }
-    finally { setLoading(false); }
-  }
+  async function load(uid: string, email: string) {
+  setLoading(true);
+  try {
+    const result = await fetchDashboard(uid);
+    if (!result.userName) result.userName = email.split('@')[0];
+    setData(result);
+  } catch (e) { console.error("Dashboard fetch error:", e); }
+  finally { setLoading(false); }
+}
 
-  useEffect(() => {
-    supabase.auth.getUser().then(({ data: { user } }) => {
-      if (user) { setUserId(user.id); load(user.id); }
-    });
-  }, []);
+useEffect(() => {
+  supabase.auth.getUser().then(({ data: { user } }) => {
+    if (user) { setUserId(user.id); load(user.id, user.email || ''); }
+  });
+}, []);
 
   // derived values
   const calPct    = data ? Math.round((data.caloriesToday / data.caloriesGoal)   * 100) : 0;
