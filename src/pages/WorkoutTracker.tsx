@@ -363,14 +363,14 @@ export default function WorkoutTracker() {
                     onChange={e => setForm(f => ({ ...f, reps: e.target.value }))} />
                 </div>
                 <button
-                  onClick={addExercise}
-                  style={{
-                    padding: "10px", borderRadius: 10, border: "none",
-                    background: form.name ? "var(--surface3)" : "var(--surface3)",
-                    color: "var(--muted)", fontSize: 14, fontWeight: 700,
-                    cursor: "pointer", fontFamily: "'DM Sans',sans-serif",
-                    border: "1px solid var(--border)", transition: "all .15s",
-                  }}
+               onClick={addExercise}
+                style={{
+                padding: "10px", borderRadius: 10,
+                background: "var(--surface3)",
+                color: "var(--muted)", fontSize: 14, fontWeight: 700,
+                cursor: "pointer", fontFamily: "'DM Sans',sans-serif",
+                border: "1px solid var(--border)", transition: "all .15s",
+                }}
                   onMouseEnter={e => { e.currentTarget.style.borderColor = "rgba(200,241,53,.3)"; e.currentTarget.style.color = "var(--accent)"; }}
                   onMouseLeave={e => { e.currentTarget.style.borderColor = "var(--border)"; e.currentTarget.style.color = "var(--muted)"; }}
                 >
