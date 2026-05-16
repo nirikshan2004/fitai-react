@@ -190,6 +190,7 @@ function QuickLogModal({ userId, onClose, onLogged }:{
   const [duration, setDuration] = useState(30);
   const [loading, setLoading]   = useState(false);
   const [done,    setDone]      = useState(false);
+  
 
   async function handleLog() {
     if (!selected || loading) return;
@@ -269,6 +270,7 @@ export default function Dashboard() {
   const [loading,  setLoading]  = useState(true);
   const [modal,    setModal]    = useState(false);
   const [userId,   setUserId]   = useState<string|null>(null);
+  const [userEmail, setUserEmail] = useState<string>('');
 
   async function load(uid: string, email: string) {
   setLoading(true);
@@ -282,7 +284,11 @@ export default function Dashboard() {
 
 useEffect(() => {
   supabase.auth.getUser().then(({ data: { user } }) => {
-    if (user) { setUserId(user.id); load(user.id, user.email || ''); }
+    if (user) {
+      setUserId(user.id);
+      setUserEmail(user.email || '');
+      load(user.id, user.email || '');
+    }
   });
 }, []);
 
@@ -576,7 +582,7 @@ useEffect(() => {
         <QuickLogModal
           userId={userId}
           onClose={() => setModal(false)}
-          onLogged={() => load(userId)}
+          onLogged={() => load(userId!, userEmail)}
         />
       )}
     </>
