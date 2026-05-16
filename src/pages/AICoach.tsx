@@ -46,36 +46,32 @@ export default function AICoach() {
     setLoading(true);
 
     try {
-      const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
+      const apiKey = import.meta.env.VITE_GROQ_API_KEY;
 
-      const contents = [
-        { role: 'user', parts: [{ text: SYSTEM_PROMPT }] },
-        { role: 'model', parts: [{ text: 'Understood! I am FitAI Coach, ready to help you crush your fitness goals. Ask me anything about workouts, nutrition, or lifestyle.' }] },
-        ...updatedMessages.map(m => ({
-          role: m.role === 'user' ? 'user' : 'model',
-          parts: [{ text: m.content }],
-        })),
-      ];
-
-      const res = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ contents }),
-        }
-      );
+      const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${apiKey}`,
+        },
+        body: JSON.stringify({
+          model: 'llama-3.3-70b-versatile',
+          messages: [
+            { role: 'system', content: SYSTEM_PROMPT },
+            ...updatedMessages.map(m => ({ role: m.role, content: m.content })),
+          ],
+          max_tokens: 1024,
+        }),
+      });
 
       const data = await res.json();
-
       if (!res.ok) throw new Error(data.error?.message || 'Request failed');
-
-      const reply = data.candidates?.[0]?.content?.parts?.[0]?.text || 'Sorry, I could not generate a response.';
+      const reply = data.choices?.[0]?.message?.content || 'Sorry, I could not generate a response.';
       setMessages(prev => [...prev, { role: 'assistant', content: reply }]);
     } catch (err) {
       setMessages(prev => [...prev, {
         role: 'assistant',
-        content: '⚠️ Something went wrong. Please check your Gemini API key and try again.',
+        content: '⚠️ Something went wrong. Please try again.',
       }]);
     } finally {
       setLoading(false);
@@ -127,7 +123,7 @@ export default function AICoach() {
             AI <span style={{ color: 'var(--accent)' }}>Coach</span>
           </h1>
           <p style={{ margin: 0, fontSize: '14px', color: 'var(--muted)' }}>
-            Your personal Gemini-powered fitness expert
+            Your personal Groq-powered fitness expert
           </p>
         </div>
         {messages.length > 0 && (
@@ -151,26 +147,17 @@ export default function AICoach() {
 
       {/* Chat Area */}
       <div style={{
-        flex: 1,
-        background: 'var(--surface2)',
-        border: '1px solid var(--border)',
-        borderRadius: '16px',
-        display: 'flex',
-        flexDirection: 'column',
-        overflow: 'hidden',
+        flex: 1, background: 'var(--surface2)', border: '1px solid var(--border)',
+        borderRadius: '16px', display: 'flex', flexDirection: 'column', overflow: 'hidden',
       }}>
-        {/* Messages */}
         <div style={{ flex: 1, overflowY: 'auto', padding: '24px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
-
-          {/* Empty State */}
           {messages.length === 0 && (
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', gap: '28px' }}>
               <div style={{ textAlign: 'center' }}>
                 <div style={{
                   width: '64px', height: '64px', borderRadius: '50%',
                   background: 'rgba(200,241,53,0.1)', border: '1px solid rgba(200,241,53,0.2)',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  margin: '0 auto 16px',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px',
                 }}>
                   <Sparkles size={28} style={{ color: 'var(--accent)' }} />
                 </div>
@@ -181,37 +168,21 @@ export default function AICoach() {
                   Workouts · Nutrition · Recovery · Mindset
                 </p>
               </div>
-
-              {/* Suggestion Chips */}
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', width: '100%', maxWidth: '580px' }}>
                 {SUGGESTIONS.map(({ emoji, text }) => (
                   <button
                     key={text}
                     onClick={() => sendMessage(text)}
                     style={{
-                      padding: '12px 16px',
-                      background: 'var(--surface3)',
-                      border: '1px solid var(--border)',
-                      borderRadius: '12px',
-                      color: 'var(--muted)',
-                      fontSize: '13px',
-                      cursor: 'pointer',
-                      textAlign: 'left',
-                      fontFamily: 'DM Sans, sans-serif',
+                      padding: '12px 16px', background: 'var(--surface3)',
+                      border: '1px solid var(--border)', borderRadius: '12px',
+                      color: 'var(--muted)', fontSize: '13px', cursor: 'pointer',
+                      textAlign: 'left', fontFamily: 'DM Sans, sans-serif',
                       display: 'flex', alignItems: 'flex-start', gap: '8px',
-                      transition: 'all 0.15s',
-                      lineHeight: 1.4,
+                      transition: 'all 0.15s', lineHeight: 1.4,
                     }}
-                    onMouseEnter={e => {
-                      e.currentTarget.style.borderColor = 'rgba(200,241,53,0.3)';
-                      e.currentTarget.style.color = 'var(--text)';
-                      e.currentTarget.style.background = 'rgba(200,241,53,0.05)';
-                    }}
-                    onMouseLeave={e => {
-                      e.currentTarget.style.borderColor = 'var(--border)';
-                      e.currentTarget.style.color = 'var(--muted)';
-                      e.currentTarget.style.background = 'var(--surface3)';
-                    }}
+                    onMouseEnter={e => { e.currentTarget.style.borderColor = 'rgba(200,241,53,0.3)'; e.currentTarget.style.color = 'var(--text)'; e.currentTarget.style.background = 'rgba(200,241,53,0.05)'; }}
+                    onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.color = 'var(--muted)'; e.currentTarget.style.background = 'var(--surface3)'; }}
                   >
                     <span style={{ fontSize: '16px', flexShrink: 0 }}>{emoji}</span>
                     <span>{text}</span>
@@ -221,44 +192,29 @@ export default function AICoach() {
             </div>
           )}
 
-          {/* Messages */}
           {messages.map((msg, i) => (
-            <div key={i} style={{
-              display: 'flex',
-              flexDirection: msg.role === 'user' ? 'row-reverse' : 'row',
-              gap: '12px',
-              alignItems: 'flex-start',
-            }}>
-              {/* Avatar */}
+            <div key={i} style={{ display: 'flex', flexDirection: msg.role === 'user' ? 'row-reverse' : 'row', gap: '12px', alignItems: 'flex-start' }}>
               <div style={{
                 width: '32px', height: '32px', borderRadius: '50%', flexShrink: 0,
                 background: msg.role === 'user' ? 'var(--accent)' : 'rgba(200,241,53,0.1)',
                 border: msg.role === 'assistant' ? '1px solid rgba(200,241,53,0.2)' : 'none',
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
               }}>
-                {msg.role === 'user'
-                  ? <User size={15} style={{ color: '#111' }} />
-                  : <Bot size={15} style={{ color: 'var(--accent)' }} />
-                }
+                {msg.role === 'user' ? <User size={15} style={{ color: '#111' }} /> : <Bot size={15} style={{ color: 'var(--accent)' }} />}
               </div>
-
-              {/* Bubble */}
               <div style={{
-                maxWidth: '72%',
-                padding: '12px 16px',
+                maxWidth: '72%', padding: '12px 16px',
                 borderRadius: msg.role === 'user' ? '16px 4px 16px 16px' : '4px 16px 16px 16px',
                 background: msg.role === 'user' ? 'var(--accent)' : 'var(--surface3)',
                 border: msg.role === 'assistant' ? '1px solid var(--border)' : 'none',
                 color: msg.role === 'user' ? '#111' : 'var(--text)',
-                fontSize: '14px',
-                lineHeight: 1.6,
+                fontSize: '14px', lineHeight: 1.6,
               }}>
                 {msg.role === 'assistant' ? formatMessage(msg.content) : msg.content}
               </div>
             </div>
           ))}
 
-          {/* Loading */}
           {loading && (
             <div style={{ display: 'flex', gap: '12px', alignItems: 'flex-start' }}>
               <div style={{
@@ -268,35 +224,17 @@ export default function AICoach() {
               }}>
                 <Bot size={15} style={{ color: 'var(--accent)' }} />
               </div>
-              <div style={{
-                padding: '14px 18px',
-                background: 'var(--surface3)',
-                border: '1px solid var(--border)',
-                borderRadius: '4px 16px 16px 16px',
-                display: 'flex', gap: '5px', alignItems: 'center',
-              }}>
+              <div style={{ padding: '14px 18px', background: 'var(--surface3)', border: '1px solid var(--border)', borderRadius: '4px 16px 16px 16px', display: 'flex', gap: '5px', alignItems: 'center' }}>
                 {[0, 1, 2].map(i => (
-                  <div key={i} style={{
-                    width: '7px', height: '7px', borderRadius: '50%',
-                    background: 'var(--accent)',
-                    animation: 'bounce 1.2s ease-in-out infinite',
-                    animationDelay: `${i * 0.2}s`,
-                    opacity: 0.7,
-                  }} />
+                  <div key={i} style={{ width: '7px', height: '7px', borderRadius: '50%', background: 'var(--accent)', animation: 'bounce 1.2s ease-in-out infinite', animationDelay: `${i * 0.2}s`, opacity: 0.7 }} />
                 ))}
               </div>
             </div>
           )}
-
           <div ref={bottomRef} />
         </div>
 
-        {/* Input Bar */}
-        <div style={{
-          padding: '16px 20px',
-          borderTop: '1px solid var(--border)',
-          display: 'flex', gap: '12px', alignItems: 'center',
-        }}>
+        <div style={{ padding: '16px 20px', borderTop: '1px solid var(--border)', display: 'flex', gap: '12px', alignItems: 'center' }}>
           <input
             ref={inputRef}
             type="text"
@@ -306,14 +244,10 @@ export default function AICoach() {
             placeholder="Ask your coach anything..."
             disabled={loading}
             style={{
-              flex: 1, padding: '12px 16px',
-              background: 'var(--surface3)',
-              border: '1px solid var(--border)',
-              borderRadius: '12px',
-              color: 'var(--text)', fontSize: '14px',
-              outline: 'none',
-              fontFamily: 'DM Sans, sans-serif',
-              opacity: loading ? 0.6 : 1,
+              flex: 1, padding: '12px 16px', background: 'var(--surface3)',
+              border: '1px solid var(--border)', borderRadius: '12px',
+              color: 'var(--text)', fontSize: '14px', outline: 'none',
+              fontFamily: 'DM Sans, sans-serif', opacity: loading ? 0.6 : 1,
             }}
             onFocus={e => (e.target.style.borderColor = 'rgba(200,241,53,0.4)')}
             onBlur={e => (e.target.style.borderColor = 'var(--border)')}
