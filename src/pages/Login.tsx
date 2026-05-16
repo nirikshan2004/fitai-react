@@ -107,7 +107,7 @@ export default function Login() {
                 background: loading ? 'var(--surface3)' : 'var(--accent)',
                 color: loading ? 'var(--muted)' : '#111',
                 border: 'none', borderRadius: '10px',
-                fontSize: '14px', fontWeight: 700,
+                fontWeight: 700,
                 cursor: loading ? 'not-allowed' : 'pointer',
                 fontFamily: 'Bebas Neue, sans-serif',
                 letterSpacing: '0.1em',
