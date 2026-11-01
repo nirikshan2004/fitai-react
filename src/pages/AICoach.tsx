@@ -7,10 +7,7 @@ interface Message {
   content: string;
 }
 
-// Model can be changed from Vercel env vars without touching code
-const GROQ_MODEL = import.meta.env.VITE_GROQ_MODEL || 'openai/gpt-oss-120b';
-
-// Only send the last N messages to Groq (keeps us under the free plan's 8K tokens/minute)
+// Only send the last N messages to the API (keeps us under the free plan's 8K tokens/minute)
 const MAX_HISTORY = 8;
 
 const SYSTEM_PROMPT = `You are FitAI Coach, an expert AI fitness and nutrition coach. You help users with:
@@ -71,25 +68,21 @@ export default function AICoach() {
     setLoading(true);
 
     try {
-      const apiKey = import.meta.env.VITE_GROQ_API_KEY;
-
-      // Only the most recent messages go to the API
+      // Only the most recent messages go to the server
       const recentMessages = updatedMessages.slice(-MAX_HISTORY);
 
-      const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+      // Calls our serverless function, which holds the Groq API key server-side.
+      const res = await fetch('/api/groq', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${apiKey}`,
         },
         body: JSON.stringify({
-          model: GROQ_MODEL,
           messages: [
             { role: 'system', content: SYSTEM_PROMPT },
             ...recentMessages.map(m => ({ role: m.role, content: m.content })),
           ],
           max_tokens: 1024,
-          reasoning_effort: 'low',
         }),
       });
 
