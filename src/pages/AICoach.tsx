@@ -7,6 +7,12 @@ interface Message {
   content: string;
 }
 
+// Model can be changed from Vercel env vars without touching code
+const GROQ_MODEL = import.meta.env.VITE_GROQ_MODEL || 'openai/gpt-oss-120b';
+
+// Only send the last N messages to Groq (keeps us under the free plan's 8K tokens/minute)
+const MAX_HISTORY = 8;
+
 const SYSTEM_PROMPT = `You are FitAI Coach, an expert AI fitness and nutrition coach. You help users with:
 - Personalized workout plans and exercise advice
 - Nutrition guidance and meal planning
@@ -14,7 +20,12 @@ const SYSTEM_PROMPT = `You are FitAI Coach, an expert AI fitness and nutrition c
 - Recovery, sleep, and lifestyle optimization
 - Motivation and fitness mindset
 
-Keep responses concise, practical, and encouraging. Use bullet points for lists. Be specific with numbers (sets, reps, calories) when relevant. Always prioritize safety — recommend consulting a doctor for medical concerns.`;
+Keep responses concise, practical, and encouraging. Use bullet points for lists. Be specific with numbers (sets, reps, calories) when relevant. Always prioritize safety — recommend consulting a doctor for medical concerns.
+
+FORMATTING RULES (very important):
+- Never use tables, # headings, or markdown links.
+- Use only short paragraphs, "- " bullet points, numbered lists ("1. "), and **bold** section titles on their own line.
+- Keep answers under about 250 words unless the user asks for a detailed plan.`;
 
 const SUGGESTIONS = [
   { emoji: '💪', text: 'Create a 4-day workout split for muscle gain' },
@@ -24,6 +35,20 @@ const SUGGESTIONS = [
   { emoji: '📊', text: 'How many calories should I eat to lose 1kg/week?' },
   { emoji: '🧘', text: 'Best stretches for muscle recovery?' },
 ];
+
+// Turns **bold** and *italic* inside a line into real <strong> / <em> elements
+const renderInline = (text: string) => {
+  const parts = text.split(/(\*\*[^*]+\*\*|\*[^*]+\*)/g);
+  return parts.map((part, i) => {
+    if (part.startsWith('**') && part.endsWith('**') && part.length > 4) {
+      return <strong key={i} style={{ fontWeight: 700 }}>{part.slice(2, -2)}</strong>;
+    }
+    if (part.startsWith('*') && part.endsWith('*') && part.length > 2) {
+      return <em key={i}>{part.slice(1, -1)}</em>;
+    }
+    return part;
+  });
+};
 
 export default function AICoach() {
   const [messages, setMessages] = useState<Message[]>([]);
@@ -48,6 +73,9 @@ export default function AICoach() {
     try {
       const apiKey = import.meta.env.VITE_GROQ_API_KEY;
 
+      // Only the most recent messages go to the API
+      const recentMessages = updatedMessages.slice(-MAX_HISTORY);
+
       const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
         method: 'POST',
         headers: {
@@ -55,12 +83,13 @@ export default function AICoach() {
           'Authorization': `Bearer ${apiKey}`,
         },
         body: JSON.stringify({
-          model: 'llama-3.3-70b-versatile',
+          model: GROQ_MODEL,
           messages: [
             { role: 'system', content: SYSTEM_PROMPT },
-            ...updatedMessages.map(m => ({ role: m.role, content: m.content })),
+            ...recentMessages.map(m => ({ role: m.role, content: m.content })),
           ],
           max_tokens: 1024,
+          reasoning_effort: 'low',
         }),
       });
 
@@ -69,9 +98,14 @@ export default function AICoach() {
       const reply = data.choices?.[0]?.message?.content || 'Sorry, I could not generate a response.';
       setMessages(prev => [...prev, { role: 'assistant', content: reply }]);
     } catch (err) {
+      console.error('AI Coach error:', err);
+      const errMsg = err instanceof Error ? err.message : '';
+      const isBusy = /rate limit|too large|tokens per minute|requests per/i.test(errMsg);
       setMessages(prev => [...prev, {
         role: 'assistant',
-        content: '⚠️ Something went wrong. Please try again.',
+        content: isBusy
+          ? '⏳ The AI Coach is busy right now. Please wait a minute and try again.'
+          : '⚠️ Something went wrong. Please try again.',
       }]);
     } finally {
       setLoading(false);
@@ -89,28 +123,42 @@ export default function AICoach() {
   const clearChat = () => setMessages([]);
 
   const formatMessage = (text: string) => {
-    return text.split('\n').map((line, i) => {
-      if (line.startsWith('**') && line.endsWith('**')) {
+    return text.split('\n').map((rawLine, i) => {
+      const line = rawLine.trim();
+
+      if (line === '') return <div key={i} style={{ height: '6px' }} />;
+
+      // Safety net: if the AI still sends a # heading, show it as a bold title
+      if (/^#{1,6}\s/.test(line)) {
+        return <p key={i} style={{ margin: '8px 0 4px', fontWeight: 700, color: 'var(--accent)' }}>{line.replace(/^#{1,6}\s+/, '').replace(/\*\*/g, '')}</p>;
+      }
+
+      // Whole line is a bold title
+      if (line.startsWith('**') && line.endsWith('**') && line.length > 4) {
         return <p key={i} style={{ margin: '8px 0 4px', fontWeight: 700, color: 'var(--accent)' }}>{line.replace(/\*\*/g, '')}</p>;
       }
-      if (line.startsWith('* ') || line.startsWith('- ')) {
+
+      // Bullet line (works with indentation too)
+      if (line.startsWith('* ') || line.startsWith('- ') || line.startsWith('• ')) {
         return (
           <div key={i} style={{ display: 'flex', gap: '8px', margin: '3px 0', paddingLeft: '4px' }}>
             <span style={{ color: 'var(--accent)', flexShrink: 0, marginTop: '1px' }}>•</span>
-            <span>{line.slice(2)}</span>
+            <span>{renderInline(line.slice(2))}</span>
           </div>
         );
       }
+
+      // Numbered line
       if (line.match(/^\d+\./)) {
         return (
           <div key={i} style={{ display: 'flex', gap: '8px', margin: '3px 0', paddingLeft: '4px' }}>
             <span style={{ color: 'var(--accent)', flexShrink: 0 }}>{line.split('.')[0]}.</span>
-            <span>{line.split('.').slice(1).join('.').trim()}</span>
+            <span>{renderInline(line.split('.').slice(1).join('.').trim())}</span>
           </div>
         );
       }
-      if (line.trim() === '') return <div key={i} style={{ height: '6px' }} />;
-      return <p key={i} style={{ margin: '3px 0', lineHeight: 1.6 }}>{line}</p>;
+
+      return <p key={i} style={{ margin: '3px 0', lineHeight: 1.6 }}>{renderInline(line)}</p>;
     });
   };
 
